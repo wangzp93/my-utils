@@ -5,8 +5,6 @@
 function PromiseES5(callback) {
     this.status = "pending";
     this.value = undefined;
-    this.resolveQueue = [];      // resolve状态回调队列
-    this.rejectQueue = [];      // reject状态回调队列
     this.cbQueue = [];     // 回调队列集合
     
     try {
