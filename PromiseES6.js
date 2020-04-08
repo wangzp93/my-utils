@@ -1,7 +1,7 @@
 /**
  * 使用ES6语法实现Promise
  */
-class MyPromise {
+class PromiseES6 {
     constructor(callback) {
         this.status = "pending";
         this.value = undefined;

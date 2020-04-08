@@ -2,7 +2,7 @@
  * 使用ES5语法实现Promise
  * @param {function} callback 
  */
-function MyPromise(callback) {
+function PromiseES5(callback) {
     this.status = "pending";
     this.value = undefined;
     this.resolveQueue = [];      // resolve状态回调队列
@@ -98,7 +98,7 @@ function MyPromise(callback) {
         this.cbQueue.splice(0);
     }
 }
-MyPromise.prototype.then = function(onResolved, onRejected) {
+PromiseES5.prototype.then = function(onResolved, onRejected) {
     var _this = this;
     return new this.constructor(function(resolve, reject) {
         // 异步
@@ -143,10 +143,10 @@ MyPromise.prototype.then = function(onResolved, onRejected) {
         }
     });
 }
-MyPromise.prototype.catch = function(onRejected) {
+PromiseES5.prototype.catch = function(onRejected) {
     return this.then(null, onRejected);
 }
-MyPromise.prototype.finally = function(callback) {
+PromiseES5.prototype.finally = function(callback) {
     var _this = this;
     return this.then(function(rsp) {
         callback();
@@ -156,7 +156,7 @@ MyPromise.prototype.finally = function(callback) {
         return _this.constructor.reject(err);
     });
 }
-MyPromise.resolve = function(value) {
+PromiseES5.resolve = function(value) {
     // value是Primose对象
     if (value instanceof this) {
         return value;
@@ -172,12 +172,12 @@ MyPromise.resolve = function(value) {
         });
     }
 }
-MyPromise.reject = function(error) {
+PromiseES5.reject = function(error) {
     return new this(function(resolve, reject) {
         reject(error);
     });
 }
-MyPromise.all = function(promiseList) {
+PromiseES5.all = function(promiseList) {
     if (!(promiseList instanceof Array)) {
         return;
     }
@@ -213,7 +213,7 @@ MyPromise.all = function(promiseList) {
         }
     });
 }
-MyPromise.race = function(promiseList) {
+PromiseES5.race = function(promiseList) {
     if (!(promiseList instanceof Array)) {
         return;
     }
@@ -235,7 +235,7 @@ MyPromise.race = function(promiseList) {
         }
     });
 }
-MyPromise.allSettled = function(promiseList) {
+PromiseES5.allSettled = function(promiseList) {
     if (!(promise instanceof Array)) {
         return;
     }
