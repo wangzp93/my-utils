@@ -164,20 +164,6 @@ function deepClone (origin) {
 	}
 	return target;
 }
-// 重写bind
-Function.prototype.newBind = function () {
-    var target = arguments[0] || window;
-    var args = [].slice.call(arguments, 1);
-    var self = this;
-    var S = function () {};
-    var F = function () {
-        var _args = [].slice.call(arguments);
-        return self.apply(this instanceof F ? this : target, args.concat(_args));
-    };
-    S.prototype = this.prototype;
-    F.prototype = new S();
-    return F;
-}
 // 继承 圣杯模式
 var inherit = (function () {
     var F = function () {};
