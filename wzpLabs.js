@@ -164,16 +164,6 @@ function deepClone (origin) {
 	}
 	return target;
 }
-// 继承 圣杯模式
-var inherit = (function () {
-    var F = function () {};
-    return function (Father, Son) {
-        F.prototype = Father.prototype;
-        Son.prototype = new F();
-        Son.prototype.constructor = Father;
-        Son.prototype.uber = Father.prototype;
-    }
-}());
 // 拖拽 (原理)
 function dragDom(elem){
 	elem.onmousedown = function(e){
