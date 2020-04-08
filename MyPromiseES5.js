@@ -7,7 +7,8 @@ function MyPromise(callback) {
     this.value = undefined;
     this.resolveQueue = [];      // resolve状态回调队列
     this.rejectQueue = [];      // reject状态回调队列
-    this.nextPromiseQueue = [];     // 下一个Promise的执行队列
+    this.cbQueue = [];     // 回调队列集合
+
     
     try {
         callback(resolve.bind(this), reject.bind(this));
@@ -16,74 +17,85 @@ function MyPromise(callback) {
     }
     
     function resolve(value) {
-        if (this.status === "pending") {
-            // value是Promise类型
-            if (value instanceof this.constructor) {
-                var _this = this;
-                value.then(function(rsp) {
-                    _this.value = rsp;
-                    _this.status = "resolved";
-                    handleQueue.call(_this);      // 处理任务队列
-                }, function(err) {
-                    _this.value = err;
-                    _this.status = "rejected";
-                    handleQueue.call(_this);      // 处理任务队列
-                });
-            }
-            // value是含有then函数的对象
-            else if (value && typeof value.then === "function") {
-                try {
-                    value.then(resolve.bind(this), reject.bind(this));
-                } catch(error) {
-                    reject.call(this, error);
+        function run() {
+            if (this.status === "pending") {
+                // value是Promise类型
+                if (value instanceof this.constructor) {
+                    var _this = this;
+                    value.then(function(rsp) {
+                        _this.value = rsp;
+                        _this.status = "resolved";
+                        handleQueue.call(_this);      // 处理任务队列
+                    }, function(err) {
+                        _this.value = err;
+                        _this.status = "rejected";
+                        handleQueue.call(_this);      // 处理任务队列
+                    });
+                }
+                // value是含有then函数的对象
+                else if (value && typeof value.then === "function") {
+                    try {
+                        value.then(resolve.bind(this), reject.bind(this));
+                    } catch(error) {
+                        reject.call(this, error);
+                    }
+                }
+                // value是普通数据
+                else {
+                    this.value = value;     // 赋值
+                    this.status = "resolved";   // 改状态
+                    handleQueue.call(this);      // 处理任务队列
                 }
             }
-            // value是普通数据
-            else {
-                this.value = value;     // 赋值
-                this.status = "resolved";   // 改状态
+        }
+        setTimeout(run.bind(this), 0);
+    }
+    function reject(error) {
+        function run() {
+            if (this.status === "pending") {
+                this.value = error;
+                this.status = "rejected";
                 handleQueue.call(this);      // 处理任务队列
             }
         }
-    }
-    function reject(error) {
-        if (this.status === "pending") {
-            this.value = error;
-            this.status = "rejected";
-            handleQueue.call(this);      // 处理任务队列
-        }
+        setTimeout(run.bind(this), 0);
     }
     // 处理任务队列
     function handleQueue() {
-        var nextQueue = this.nextPromiseQueue;
         var _this = this;
         if (this.status === "resolved") {
-            this.resolveQueue.map(function(cb, i) {
+            this.cbQueue.map(function(cbObj) {
                 // 有回调函数，回调的返回结果，作为下一个Promise的值
-                if (typeof cb === "function") {
-                    nextQueue[i].resolve(cb(_this.value));
+                if (typeof cbObj.onResolved === "function") {
+                    try {
+                        cbObj.resolve(cbObj.onResolved(_this.value));
+                    } catch(error) {
+                        cbObj.reject(error);
+                    }
                 }
                 // 穿透，本次value作为下一个Promise的值
                 else {
-                    nextQueue[i].resolve(_this.value);
+                    cbObj.resolve(_this.value);
                 }
             });
         } else if (this.status === "rejected") {
-            this.rejectQueue.map(function(cb, i) {
+            this.cbQueue.map(function(cbObj) {
                 // 有回调，回调的返回结果，作为下一个Promise的值，并且新Promise为resolved状态
-                if (typeof cb === "function") {
-                    nextQueue[i].resolve(cb(_this.value));
+                if (typeof cbObj.onRejected === "function") {
+                    try {
+                        cbObj.resolve(cbObj.onRejected(_this.value));
+                    } catch(error) {
+                        cbObj.reject(error);
+                    }
                 }
                 // 穿透，本次error作为下一个Promise的值
                 else {
-                    nextQueue[i].reject(_this.value);
+                    cbObj.reject(_this.value);
                 }
             });
         }
         // 队列置空
-        this.resolveQueue.splice(0);
-        this.rejectQueue.splice(0);
-        this.nextPromiseQueue.splice(0);
+        this.cbQueue.splice(0);
     }
 }
 MyPromise.prototype.then = function(onResolved, onRejected) {
@@ -92,9 +104,9 @@ MyPromise.prototype.then = function(onResolved, onRejected) {
         // 异步
         if (_this.status === "pending") {
             // 加入队列, 等待执行
-            _this.resolveQueue.push(onResolved);
-            _this.rejectQueue.push(onRejected);
-            _this.nextPromiseQueue.push({
+            _this.cbQueue.push({
+                onResolved: onResolved,
+                onRejected: onRejected,
                 resolve: resolve,
                 reject: reject
             });
@@ -103,7 +115,11 @@ MyPromise.prototype.then = function(onResolved, onRejected) {
         else if (_this.status === "resolved") {
             // 有回调函数，回调的返回结果，作为下一个Promise的值
             if (typeof onResolved === "function") {
-                resolve(onResolved(_this.value));
+                try {
+                    resolve(onResolved(_this.value));
+                } catch(error) {
+                    reject(error);
+                }
             }
             // 穿透，本次value作为下一个Promise的值
             else {
@@ -114,7 +130,11 @@ MyPromise.prototype.then = function(onResolved, onRejected) {
         else if (_this.status === "rejected") {
             // 有回调，回调的返回结果，作为下一个Promise的值，并且新Promise为resolved状态
             if (typeof onRejected === "function") {
-                resolve(onRejected(_this.value));
+                try {
+                    resolve(onRejected(_this.value));
+                } catch(error) {
+                    reject(error);
+                }
             }
             // 穿透，本次value作为下一个Promise的值，并且新Promise为rejected状态
             else {
@@ -124,50 +144,16 @@ MyPromise.prototype.then = function(onResolved, onRejected) {
     });
 }
 MyPromise.prototype.catch = function(onRejected) {
-    var _this = this;
-    return new this.constructor(function(resolve, reject) {
-        // 异步
-        if (_this.status === "pending") {
-            _this.resolveQueue.push(null);
-            _this.rejectQueue.push(onRejected);
-            _this.nextPromiseQueue.push({
-                resolve: resolve,
-                reject: reject
-            });
-        }
-        // 同步失败
-        else if (_this.status === "rejected") {
-            if (typeof onRejected === "function") {
-                resolve(onRejected(_this.value));
-            }
-            // 穿透
-            else {
-                reject(_this.value);
-            }
-        }
-        // 同步成功
-        else if (_this.status === "resolved") {
-            resolve(_this.value);
-        }
-    });
+    return this.then(null, onRejected);
 }
-MyPromise.prototype.finally = function(cb) {
+MyPromise.prototype.finally = function(callback) {
     var _this = this;
-    return new this.constructor(function(resolve, reject) {
-        if (_this.status === "pending") {
-            _this.resolveQueue.push(cb);
-            _this.rejectQueue.push(cb);
-            _this.nextPromiseQueue.push({
-                resolve: resolve,
-                reject: reject
-            });
-        } else if (_this.status === "resolved") {
-            cb();
-            resolve(_this.value);
-        } else if (_this.status === "rejected") {
-            cb();
-            reject(_this.value);
-        }
+    return this.then(function(rsp) {
+        callback();
+        return _this.constructor.resolve(rsp);
+    }, function(err) {
+        callback();
+        return _this.constructor.reject(err);
     });
 }
 MyPromise.resolve = function(value) {

@@ -1,16 +1,16 @@
 /**
  * 使用TypeScript语法实现Promise
  */
-interface NextPromise {
-    resolve: Function;
-    reject: Function;
+interface CbObj {
+    onResolved: Function,
+    onRejected: Function,
+    resolve: Function,
+    reject: Function
 }
 class MyPromise {
     private status: string = "pending";     // 状态
     private value: any = undefined;          // 数据
-    private readonly resolveQueue: Function[] = [];       // resolve回调队列
-    private readonly rejectQueue: Function[] = [];        // reject回调队列
-    private readonly nextPromiseQueue: NextPromise[] = [];    // 新promise执行队列
+    private readonly cbQueue: CbObj[] = [];    // 回调队列集合
     constructor(callback: Function) {
         try {
             callback(resolve.bind(this), reject.bind(this));
@@ -25,82 +25,93 @@ class MyPromise {
          * @param value 
          */
         function resolve(value: any): void {
-            if (this.status === "pending") {
-                // 如果是Promise类型，获取它的值和状态
-                if (value instanceof this.constructor) {
-                    value.then((rsp: any)=> {
-                        this.value = rsp;
+            let run = (): void => {
+                if (this.status === "pending") {
+                    // 如果是Promise类型，获取它的值和状态
+                    if (value instanceof this.constructor) {
+                        value.then((rsp: any)=> {
+                            this.value = rsp;
+                            this.status = "resolved";
+                            handleQueue.call(this);     // 处理回调队列
+                        }, (err: any)=> {
+                            this.value = err;
+                            this.status = "rejected";
+                            handleQueue.call(this);     // 处理回调队列
+                        });
+                    }
+                    // 如果是带then函数的对象，执行then函数
+                    else if (value && typeof value.then === "function") {
+                        try {
+                            value.then(resolve.bind(this), reject.bind(this));
+                        } catch(error) {
+                            reject.call(this, error);
+                        }
+                    }
+                    // 只是普通数据
+                    else {
+                        this.value = value;
                         this.status = "resolved";
                         handleQueue.call(this);     // 处理回调队列
-                    }, (err: any)=> {
-                        this.value = err;
-                        this.status = "rejected";
-                        handleQueue.call(this);     // 处理回调队列
-                    });
-                }
-                // 如果是带then函数的对象，执行then函数
-                else if (value && typeof value.then === "function") {
-                    try {
-                        value.then(resolve.bind(this), reject.bind(this));
-                    } catch(error) {
-                        reject.call(this, error);
                     }
                 }
-                // 只是普通数据
-                else {
-                    this.value = value;
-                    this.status = "resolved";
-                    handleQueue.call(this);     // 处理回调队列
-                }
             }
+            setTimeout(run, 0);
         }
         /**
          * 执行失败回调
          * @param error 
          */
         function reject(error: any): void {
-            if (this.status === "pending") {
-                this.value = error;
-                this.status = "rejected";
-                handleQueue.call(this);     // 处理回调队列
+            let run = (): void => {
+                if (this.status === "pending") {
+                    this.value = error;
+                    this.status = "rejected";
+                    handleQueue.call(this);     // 处理回调队列
+                }
             }
+            setTimeout(run, 0);
         }
         /**
          * 异步时会出现回调队列，在这里封装成方法统一处理
          * Promise状态改变后会调用
          */
         function handleQueue(): void {
-            let nextQueue = this.nextPromiseQueue;
             // resolve处理方式
             if (this.status === "resolved") {
-                this.resolveQueue.map((cb, i)=> {
+                this.cbQueue.map((cbObj: CbObj)=> {
                     // 回调函数存在，返回结果作为新promise的值
-                    if (typeof cb === "function") {
-                        nextQueue[i].resolve(cb(this.value));
+                    if (typeof cbObj.onResolved === "function") {
+                        try {
+                            cbObj.resolve(cbObj.onResolved(this.value));
+                        } catch(error) {
+                            cbObj.reject(error);
+                        }
                     }
                     // 回调函数不存在，当前value作为新promise的值
                     else {
-                        nextQueue[i].resolve(this.value);
+                        cbObj.resolve(this.value);
                     }
                 });
             }
             // reject处理方式
             else if (this.status === "rejected") {
-                this.rejectQueue.map((cb: Function, i: number)=> {
+                this.cbQueue.map((cbObj: CbObj)=> {
                     // 回调函数存在，返回结果作为新promise的值，并且新promise为resolve状态
-                    if (typeof cb === "function") {
-                        nextQueue[i].resolve(cb(this.value));
+                    if (typeof cbObj.onResolved === "function") {
+                        try {
+                            cbObj.resolve(cbObj.onResolved(this.value));
+                        } catch(error) {
+                            cbObj.reject(error);
+                        }
                     }
                     // 回调函数不存在，当前value作为新promise的值
                     else {
-                        nextQueue[i].reject(this.value);
+                        cbObj.reject(this.value);
                     }
                 });
             }
             // 最后清空队列
-            this.resolveQueue.splice(0);
-            this.rejectQueue.splice(0);
-            this.nextPromiseQueue.splice(0);
+            this.cbQueue.splice(0);
         }
 
     }
@@ -116,9 +127,9 @@ class MyPromise {
             // 异步
             if (this.status === "pending") {
                 // 加入队列，等待执行
-                this.resolveQueue.push(onResolved);
-                this.rejectQueue.push(onRejected);
-                this.nextPromiseQueue.push({
+                this.cbQueue.push({
+                    onResolved,
+                    onRejected,
                     resolve,
                     reject
                 });
@@ -127,7 +138,11 @@ class MyPromise {
             else if (this.status === "resolved") {
                 // 有回调函数，回调结果作为Promise值
                 if (typeof onResolved === "function") {
-                    resolve(onResolved(this.value));
+                    try {
+                        resolve(onResolved(this.value));
+                    } catch(error) {
+                        reject(error);
+                    }
                 }
                 // 没有回调函数，穿透
                 else {
@@ -138,7 +153,11 @@ class MyPromise {
             else if (this.status === "rejected") {
                 // 有回调函数，回调结果作为Promise值，并且为resolved状态
                 if (typeof onRejected === "function") {
-                    resolve(onRejected(this.value));
+                    try {
+                        resolve(onRejected(this.value));
+                    } catch(error) {
+                        reject(error);
+                    }
                 }
                 // 没有回调函数，穿透
                 else {
@@ -153,58 +172,18 @@ class MyPromise {
      * 无回调，穿透
      */
     private catch(onRejected: Function): MyPromise {
-        return new MyPromise((resolve: any, reject: any) => {
-            if (this.status === "pending") {
-                // 加入队列，等待执行
-                this.resolveQueue.push(null);   // 传个空，用来占位
-                this.rejectQueue.push(onRejected);
-                this.nextPromiseQueue.push({
-                    resolve,
-                    reject
-                });
-            }
-            // 失败
-            else if (this.status === "rejected") {
-                // 有回调
-                if (typeof onRejected === "function") {
-                    resolve(onRejected(this.value));
-                }
-                // 无回调，穿透
-                else {
-                    reject(this.value);
-                }
-            }
-            // 成功，直接穿透
-            else if (this.status === "resolved") {
-                resolve(this.value);
-            }
-        });
+        return this.then(null, onRejected);
     }
     /**
      * 始终执行，返回一个新Promise，直接穿透
      */
     private finally(callback: Function): MyPromise {
-        return new MyPromise((resolve: Function, reject: Function)=> {
-            // 异步
-            if (this.status === "pending") {
-                // 成功与失败队列都加入，始终执行
-                this.resolveQueue.push(callback);
-                this.rejectQueue.push(callback);
-                this.nextPromiseQueue.push({
-                    resolve,
-                    reject
-                });
-            }
-            // 同步成功
-            else if (this.status === "resolved") {
-                callback();
-                resolve(this.value);
-            }
-            // 同步失败
-            else if (this.status === "rejected") {
-                callback();
-                reject(this.value);
-            }
+        return this.then((rsp: any)=> {
+            callback();
+            return MyPromise.resolve(rsp);
+        }, (err: any)=> {
+            callback();
+            return MyPromise.reject(err);
         });
     }
     /**

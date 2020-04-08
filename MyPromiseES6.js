@@ -5,9 +5,7 @@ class MyPromise {
     constructor(callback) {
         this.status = "pending";
         this.value = undefined;
-        this.resolveQueue = [];
-        this.rejectQueue = [];
-        this.nextPromiseQueue = [];
+        this.cbQueue = [];
         
         try {
             callback(resolve.bind(this), reject.bind(this));
@@ -16,79 +14,98 @@ class MyPromise {
         }
         
         function resolve(value) {
-            if (this.status === "pending") {
-                if (value instanceof this.constructor) {
-                    value.then((rsp)=> {
-                        this.value = rsp;
+            let run = ()=> {
+                if (this.status === "pending") {
+                    if (value instanceof this.constructor) {
+                        value.then((rsp)=> {
+                            this.value = rsp;
+                            this.status = "resolved";
+                            handleQueue.call(this);
+                        }, (err)=> {
+                            this.value = err;
+                            this.status = "rejected";
+                            handleQueue.call(this);
+                        });
+                    } else if (value && typeof value.then === "function") {
+                        try {
+                            value.then(resolve.bind(this), reject.bind(this));
+                        } catch(error) {
+                            resolve.call(this, error);
+                        }
+                    } else {
+                        this.value = value;
                         this.status = "resolved";
                         handleQueue.call(this);
-                    }, (err)=> {
-                        this.value = err;
-                        this.status = "rejected";
-                        handleQueue.call(this);
-                    });
-                } else if (value && typeof value.then === "function") {
-                    try {
-                        value.then(resolve.bind(this), reject.bind(this));
-                    } catch(error) {
-                        resolve.call(this, error);
                     }
-                } else {
-                    this.value = value;
-                    this.status = "resolved";
+                }
+            }
+            setTimeout(run, 0);
+        }
+        function reject(error) {
+            let run = ()=> {
+                if (this.status === "pending") {
+                    this.value = error;
+                    this.status = "rejected";
                     handleQueue.call(this);
                 }
             }
-        }
-        function reject(error) {
-            if (this.status === "pending") {
-                this.value = error;
-                this.status = "rejected";
-                handleQueue.call(this);
-            }
+            setTimeout(run, 0);
         }
         function handleQueue() {
-            let nextQueue = this.nextPromiseQueue;
             if (this.status === "resolved") {
-                this.resolveQueue.map((cb, i)=> {
-                    if (typeof cb === "function") {
-                        nextQueue[i].resolve(cb(this.value));
+                this.cbQueue.map((cbObj)=> {
+                    if (typeof cbObj.onResolved === "function") {
+                        try {
+                            cbObj.resolve(cbObj.onResolved(this.value));
+                        } catch(error) {
+                            cbObj.reject(error);
+                        }
                     } else {
-                        nextQueue[i].resolve(this.value);
+                        cbObj.resolve(this.value);
                     }
                 });
             } else if (this.status === "rejected") {
-                this.rejectQueue.map((cb, i)=> {
-                    if (typeof cb === "function") {
-                        nextQueue[i].resolve(cb(this.value));
+                this.cbQueue.map((cbObj)=> {
+                    if (typeof cbObj.onRejected === "function") {
+                        try {
+                            cbObj.resolve(cbObj.onRejected(this.value));
+                        } catch(error) {
+                            cbObj.reject(error);
+                        }
                     } else {
-                        nextQueue[i].reject(this.value);
+                        cbObj.reject(this.value);
                     }
                 });
             }
-            this.resolveQueue.splice(0);
-            this.rejectQueue.splice(0);
-            this.nextPromiseQueue.splice(0);
+            this.cbQueue.splice(0);
         }
     }
     then(onResolved, onRejected) {
         return new this.constructor((resolve, reject)=> {
             if (this.status === "pending") {
-                this.resolveQueue.push(onResolved);
-                this.rejectQueue.push(onRejected);
-                this.nextPromiseQueue.push({
+                this.cbQueue.push({
+                    onResolved,
+                    onRejected,
                     resolve,
                     reject
                 });
             } else if (this.status === "resolved") {
                 if (typeof onResolved === "function") {
-                    resolve(onResolved(this.value));
+                    try {
+                        resolve(onResolved(this.value));
+                    } catch(error) {
+                        reject(error);
+                    }
                 } else {
                     resolve(this.value);
                 }
             } else if (this.status === "rejected") {
                 if (typeof onRejected === "function") {
-                    resolve(onRejected(this.value));
+                    try {
+                        resolve(onRejected(this.value));
+                    } catch(error) {
+                        reject(error);
+                    }
                 } else {
                     reject(this.value);
                 }
@@ -96,41 +113,14 @@ class MyPromise {
         });
     }
     catch(onRejected) {
-        return new this.constructor((resolve, reject)=> {
-            if (this.status === "pending") {
-                this.resolveQueue.push(null);
-                this.rejectQueue.push(onRejected);
-                this.nextPromiseQueue.push({
-                    resolve,
-                    reject
-                });
-            } else if (this.status === "rejected") {
-                if (typeof onRejected === "function") {
-                    resolve(onRejected(this.value));
-                } else {
-                    reject(this.value);
-                }
-            } else if (this.status === "resolved") {
-                resolve(this.value);
-            }
-        });
+        return this.then(null, onRejected);
     }
     finally(callback) {
-        return new this.constructor((resolve, reject)=> {
-            if (this.status === "pending") {
-                this.resolveQueue.push(callback);
-                this.rejectQueue.push(callback);
-                this.nextPromiseQueue.push({
-                    resolve,
-                    reject
-                });
-            } else if (this.status === "resolved") {
-                callback();
-                resolve(this.value);
-            } else if (this.status === "rejected") {
-                callback();
-                reject(this.value);
-            }
+        return this.then((rsp)=> {
+            callback();
+            return this.constructor.resolve(rsp);
+        }, (err)=> {
+            return this.constructor.reject(err);
         });
     }
     static resolve(value) {
