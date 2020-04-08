@@ -8,7 +8,6 @@ function PromiseES5(callback) {
     this.resolveQueue = [];      // resolve状态回调队列
     this.rejectQueue = [];      // reject状态回调队列
     this.cbQueue = [];     // 回调队列集合
-
     
     try {
         callback(resolve.bind(this), reject.bind(this));
