@@ -13,7 +13,7 @@ var PromiseTS = /** @class */ (function () {
          * 执行成功回调，入参有三种情况
          * 1. 传入Promise类型时，穿透
          * 2. 传入带then函数的对象时，执行then
-         * 3. 传入普通数据，作为Promise值
+         * 3. 传入普通数据，作为Promise的值
          * @param value
          */
         function resolve(value) {
@@ -49,10 +49,11 @@ var PromiseTS = /** @class */ (function () {
                     }
                 }
             };
+            // setTimeout模拟微任务，使Promise始终异步执行
             setTimeout(run, 0);
         }
         /**
-         * 执行失败回调
+         * 执行失败回调，错误信息直接作为Promise的值
          * @param error
          */
         function reject(error) {
@@ -64,6 +65,7 @@ var PromiseTS = /** @class */ (function () {
                     handleQueue.call(_this); // 处理回调队列
                 }
             };
+            // setTimeout模拟微任务，使Promise始终异步执行
             setTimeout(run, 0);
         }
         /**
@@ -94,9 +96,9 @@ var PromiseTS = /** @class */ (function () {
             else if (this.status === "rejected") {
                 this.cbQueue.map(function (cbObj) {
                     // 回调函数存在，返回结果作为新promise的值，并且新promise为resolve状态
-                    if (typeof cbObj.onResolved === "function") {
+                    if (typeof cbObj.onRejected === "function") {
                         try {
-                            cbObj.resolve(cbObj.onResolved(_this.value));
+                            cbObj.resolve(cbObj.onRejected(_this.value));
                         }
                         catch (error) {
                             cbObj.reject(error);
@@ -122,7 +124,6 @@ var PromiseTS = /** @class */ (function () {
     PromiseTS.prototype.then = function (onResolved, onRejected) {
         var _this = this;
         return new PromiseTS(function (resolve, reject) {
-            // 异步
             if (_this.status === "pending") {
                 // 加入队列，等待执行
                 _this.cbQueue.push({
@@ -132,36 +133,39 @@ var PromiseTS = /** @class */ (function () {
                     reject: reject
                 });
             }
-            // 同步成功
-            else if (_this.status === "resolved") {
-                // 有回调函数，回调结果作为Promise值
-                if (typeof onResolved === "function") {
-                    try {
-                        resolve(onResolved(_this.value));
+            // 同步
+            else {
+                // 成功
+                if (_this.status === "resolved") {
+                    // 有回调
+                    if (typeof onResolved === "function") {
+                        try {
+                            resolve(onResolved(_this.value));
+                        }
+                        catch (error) {
+                            reject(error);
+                        }
                     }
-                    catch (error) {
-                        reject(error);
-                    }
-                }
-                // 没有回调函数，穿透
-                else {
-                    resolve(_this.value);
-                }
-            }
-            // 同步失败
-            else if (_this.status === "rejected") {
-                // 有回调函数，回调结果作为Promise值，并且为resolved状态
-                if (typeof onRejected === "function") {
-                    try {
-                        resolve(onRejected(_this.value));
-                    }
-                    catch (error) {
-                        reject(error);
+                    // 无回调，穿透
+                    else {
+                        resolve(_this.value);
                     }
                 }
-                // 没有回调函数，穿透
-                else {
-                    reject(_this.value);
+                // 失败
+                else if (_this.status === "rejected") {
+                    // 有回调
+                    if (typeof onRejected === "function") {
+                        try {
+                            resolve(onRejected(_this.value));
+                        }
+                        catch (error) {
+                            reject(error);
+                        }
+                    }
+                    // 无回调，穿透
+                    else {
+                        reject(_this.value);
+                    }
                 }
             }
         });
@@ -178,12 +182,13 @@ var PromiseTS = /** @class */ (function () {
      * 始终执行，返回一个新Promise，直接穿透
      */
     PromiseTS.prototype["finally"] = function (callback) {
+        var _this = this;
         return this.then(function (rsp) {
             callback();
-            return PromiseTS.resolve(rsp);
+            return _this.constructor["resolve"](rsp);
         }, function (err) {
             callback();
-            return PromiseTS.reject(err);
+            return _this.constructor["reject"](err);
         });
     };
     /**
@@ -203,7 +208,7 @@ var PromiseTS = /** @class */ (function () {
         }
         // 普通数据
         else {
-            return new this(function (resolve) {
+            return new this(function (resolve, reject) {
                 resolve(value);
             });
         }

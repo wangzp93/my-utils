@@ -21,8 +21,8 @@ class PromiseTS {
          * 执行成功回调，入参有三种情况
          * 1. 传入Promise类型时，穿透
          * 2. 传入带then函数的对象时，执行then
-         * 3. 传入普通数据，作为Promise值
-         * @param value 
+         * 3. 传入普通数据，作为Promise的值
+         * @param value
          */
         function resolve(value: any): void {
             let run = (): void => {
@@ -55,10 +55,11 @@ class PromiseTS {
                     }
                 }
             }
+            // setTimeout模拟微任务，使Promise始终异步执行
             setTimeout(run, 0);
         }
         /**
-         * 执行失败回调
+         * 执行失败回调，错误信息直接作为Promise的值
          * @param error 
          */
         function reject(error: any): void {
@@ -69,6 +70,7 @@ class PromiseTS {
                     handleQueue.call(this);     // 处理回调队列
                 }
             }
+            // setTimeout模拟微任务，使Promise始终异步执行
             setTimeout(run, 0);
         }
         /**
@@ -97,9 +99,9 @@ class PromiseTS {
             else if (this.status === "rejected") {
                 this.cbQueue.map((cbObj: CbObj)=> {
                     // 回调函数存在，返回结果作为新promise的值，并且新promise为resolve状态
-                    if (typeof cbObj.onResolved === "function") {
+                    if (typeof cbObj.onRejected === "function") {
                         try {
-                            cbObj.resolve(cbObj.onResolved(this.value));
+                            cbObj.resolve(cbObj.onRejected(this.value));
                         } catch(error) {
                             cbObj.reject(error);
                         }
@@ -113,7 +115,6 @@ class PromiseTS {
             // 最后清空队列
             this.cbQueue.splice(0);
         }
-
     }
     /**
      * 对Promise的处理，返回新Promise
@@ -124,7 +125,6 @@ class PromiseTS {
      */
     private then(onResolved: Function, onRejected: Function): PromiseTS {
         return new PromiseTS((resolve: Function, reject: Function)=> {
-            // 异步
             if (this.status === "pending") {
                 // 加入队列，等待执行
                 this.cbQueue.push({
@@ -134,34 +134,37 @@ class PromiseTS {
                     reject
                 });
             }
-            // 同步成功
-            else if (this.status === "resolved") {
-                // 有回调函数，回调结果作为Promise值
-                if (typeof onResolved === "function") {
-                    try {
-                        resolve(onResolved(this.value));
-                    } catch(error) {
-                        reject(error);
+            // 同步
+            else {
+                // 成功
+                if (this.status === "resolved") {
+                    // 有回调
+                    if (typeof onResolved === "function") {
+                        try {
+                            resolve(onResolved(this.value));
+                        } catch(error) {
+                            reject(error);
+                        }
+                    }
+                    // 无回调，穿透
+                    else {
+                        resolve(this.value);
                     }
                 }
-                // 没有回调函数，穿透
-                else {
-                    resolve(this.value);
-                }
-            }
-            // 同步失败
-            else if (this.status === "rejected") {
-                // 有回调函数，回调结果作为Promise值，并且为resolved状态
-                if (typeof onRejected === "function") {
-                    try {
-                        resolve(onRejected(this.value));
-                    } catch(error) {
-                        reject(error);
+                // 失败
+                else if (this.status === "rejected") {
+                    // 有回调
+                    if (typeof onRejected === "function") {
+                        try {
+                            resolve(onRejected(this.value));
+                        } catch(error) {
+                            reject(error);
+                        }
                     }
-                }
-                // 没有回调函数，穿透
-                else {
-                    reject(this.value);
+                    // 无回调，穿透
+                    else {
+                        reject(this.value);
+                    }
                 }
             }
         });
@@ -180,10 +183,10 @@ class PromiseTS {
     private finally(callback: Function): PromiseTS {
         return this.then((rsp: any)=> {
             callback();
-            return PromiseTS.resolve(rsp);
+            return this.constructor["resolve"](rsp);
         }, (err: any)=> {
             callback();
-            return PromiseTS.reject(err);
+            return this.constructor["reject"](err);
         });
     }
     /**
@@ -203,7 +206,7 @@ class PromiseTS {
         }
         // 普通数据
         else {
-            return new this((resolve: any)=> {
+            return new this((resolve: Function, reject: Function)=> {
                 resolve(value);
             });
         }
