@@ -186,29 +186,6 @@ function dragDom(elem){
 		document.onmousemove = null;
 	};
 }
-//节流 (被节流的函数, 等待时间)
-function throttle(handler, wait) {
-	var lastTime = 0;
-	return function(){
-		var nowTime = new Date().getTime();
-		if(nowTime - lastTime > wait) {
-			handler.apply(this, arguments);
-			lastTime = nowTime;
-		}
-	}
-}
-// 防抖 (被防抖的函数, 等待时间)
-function debounce(handler, wait) {
-	var timer = null;
-	return function() {
-		var self = this,
-			args = arguments;
-		clearTimeout(timer);
-		timer = setTimeout(function(){
-			handler.apply(self, args);
-		}, wait);
-	}
-}
 // 更改对象的原型 (仅适用于Chrome和FireFox，在IE中不工作)
 Object.setPrototypeOf = Object.setPrototypeOf || function (obj, proto) {
 	obj.__proto__ = proto;
