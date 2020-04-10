@@ -7,9 +7,12 @@ function throttle(fn, wait) {
     var lastTime = 0;
     return function() {
         var nowTime = new Date().getTime();
+
+        // 超过节流时间后，可以执行了
         if (nowTime - lastTime > wait) {
-            fn.apply(this, arguments);  // 超过节流时间后，可以执行了
-            lastTime = nowTime;     // lastTime变为当前时间
+            fn.apply(this, arguments);
+            // lastTime变为当前时间
+            lastTime = nowTime;
         }
     }
 }
