@@ -2,11 +2,15 @@
  * 手写bind函数
  */
 Function.prototype.myBind = function() {
-    var target = arguments[0] || Window;    // 获取this要指向的目标，默认是Window
-    var args = Array.prototype.slice.call(arguments, 1);     // 获取实际参数列表
+    // 获取this要指向的目标，默认是Window
+    var target = arguments[0] || Window;
+    // 获取实际参数列表
+    var args = Array.prototype.slice.call(arguments, 1);
+
     var _this = this;
-    var S = function() {
-        var _args = Array.prototype.slice.call(arguments, 0);   // 获取新传入参数列表
+    function S() {
+        // 获取新传入参数列表
+        var _args = Array.prototype.slice.call(arguments, 0);
         // 判断如果是new调用，不改变this指向
         // 新老入参合并
         // 加return，把原函数的执行结果也返回出来
@@ -16,5 +20,7 @@ Function.prototype.myBind = function() {
     function F() {}
     F.prototype = this.prototype;
     S.prototype = new F();
-    return S;   // 返回这个新函数
+    
+    // 返回这个新函数
+    return S;
 }
