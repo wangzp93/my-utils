@@ -6,10 +6,13 @@
 function debounce(fn, wait) {
     var timer = null;   // 定时器
     return function() {
-        clearTimeout(timer);    // 每次先清除上次定时器
+        // 每次先清除上次定时器
+        clearTimeout(timer);
         var _this = this,
             _args = arguments;
-        timer = setTimeout(function() {     // 创建定时器
+        
+        // 创建定时器
+        timer = setTimeout(function() {
             fn.apply(_this, _args);
         }, wait);
     }
