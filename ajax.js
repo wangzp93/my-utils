@@ -26,6 +26,7 @@ function myAjax(options) {
 
     var xhr = new XMLHttpRequest();
 
+    // 当get请求时，处理参数
     if (method === "GET") {
         var paramStr = "";
         var i = 0;
@@ -39,15 +40,17 @@ function myAjax(options) {
         data = null;
     }
 
+    // 配置xhr
     xhr.open(method, url, async);
     xhr.timeout = options.timeout || 3000;
 
+    // 当post请求时，处理参数
     if (method === "POST") {
         // Request Payload
         xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
         data = JSON.stringify(data);
 
-        // FormData
+        // Form Data
         // var paramStr = "";
         // xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
         // var i = 0;
@@ -56,7 +59,7 @@ function myAjax(options) {
         // }
         // data = paramStr;
     }
-
+    // 成功时回调
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -66,11 +69,12 @@ function myAjax(options) {
             }
         }
     }
+    // 失败时回调
     xhr.onerror = function(error) {
         if (typeof options.error === "function") {
             options.error(error);
         }
     }
-
+    // 发送请求
     xhr.send(data);
 }
