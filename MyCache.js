@@ -1,4 +1,4 @@
-/***
+/**
  * 一个缓存工具
  */
 function MyCache() {
@@ -13,3 +13,10 @@ function MyCache() {
         delete cache[id];
     }
 }
+
+/**
+ * 使用
+ */
+var myCache = new MyCache()
+myCache.setCache('userId', '123')
+myCache.getCache('userId')	// 123
