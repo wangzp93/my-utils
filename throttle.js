@@ -3,6 +3,21 @@
  * @param {function} fn 被节流的函数
  * @param {number} wait 节流时间(毫秒)
  */
+// 思路1
+function throttle(fn, wait) {
+    var isRun = false;
+	return function() {
+		if (isRun) {
+			return;
+		}
+		isRun = true
+		fn.apply(this, arguments)
+		setTimeout(function() {
+			isRun = false
+		}, wait)
+	}
+}
+// 思路2
 function throttle(fn, wait) {
     var lastTime = 0;
     return function() {
