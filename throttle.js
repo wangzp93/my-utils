@@ -21,7 +21,7 @@ function throttle(fn, wait) {
 function throttle(fn, wait) {
     var lastTime = 0;
     return function() {
-        var nowTime = new Date().getTime();
+        var nowTime = Date.now();
 
         // 超过节流时间后，可以执行了
         if (nowTime - lastTime > wait) {
