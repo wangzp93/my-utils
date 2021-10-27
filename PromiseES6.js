@@ -140,7 +140,7 @@ class PromiseES6 {
         });
     }
     static all(promiseList) {
-        if (!(promiseList instanceof Array)) {
+        if (!Array.isArray(promiseList)) {
             return;
         }
         let rspList = [];
@@ -155,7 +155,7 @@ class PromiseES6 {
                             resolve(rspList);
                         }
                     }, (err)=> {
-                        resolve(err);
+                        reject(err);
                     });
                 } else {
                     rspList[i] = p;
