@@ -4,12 +4,12 @@ Date.prototype.format = function(format) {
         return str
     }
     const year = this.getFullYear(),
-        month = ('0' + (this.getMonth() + 1)).substr(-2),
-        day = ('0' + this.getDate()).substr(-2),
-        hour = ('0' + this.getHours()).substr(-2),
-        minutes = ('0' + this.getMinutes()).substr(-2),
-        seconds = ('0' + this.getSeconds()).substr(-2),
-        milliSeconds = ('00' + this.getMilliseconds()).substr(-3)
+        month = ('0' + (this.getMonth() + 1)).slice(-2),
+        day = ('0' + this.getDate()).slice(-2),
+        hour = ('0' + this.getHours()).slice(-2),
+        minutes = ('0' + this.getMinutes()).slice(-2),
+        seconds = ('0' + this.getSeconds()).slice(-2),
+        milliSeconds = ('00' + this.getMilliseconds()).slice(-3)
 
     const regYear = /^Y{4}/,
         regMonth = /M{2}/,
