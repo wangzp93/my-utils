@@ -197,11 +197,9 @@ class PromiseES6 {
                 if (p instanceof this) {
                     p.then((rsp)=> {
                         rspList[i] = rsp;
-                        if (++count === len) {
-                            resolve(rspList);
-                        }
-                    }, (err)=> {
+                    }).catch((err) => {
                         rspList[i] = err;
+                    }).finally(() => {
                         if (++count === len) {
                             resolve(rspList);
                         }
